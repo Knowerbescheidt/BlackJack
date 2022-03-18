@@ -7,9 +7,17 @@ import (
 	deck "github.com/Knowerbescheidt/Deck-of-cards"
 )
 
-//Scoring Dealer AI
+//Reimplementing 7:10
 
 type Hand []deck.Card
+
+type State int8
+
+const (
+	StatePlayerTurn State = iota
+	StateDealerTurn
+	StateHandOver
+)
 
 func (h Hand) String() string {
 	strs := make([]string, len(h))
@@ -51,20 +59,37 @@ func min(a, b int) int {
 	return b
 }
 
-func main() {
-	cards := deck.New(deck.Deck(3), deck.Shuffle)
+func Shuffle(gs Gamestate) Gamestate {
+	ret := clone(gs)
+	ret.Deck = deck.New(deck.Deck(3), deck.Shuffle)
+	return ret
+}
+
+func Deal(gs Gamestate) Gamestate {
+	ret := clone(gs)
+	ret.Player = make(Hand, 0, 7)
+	ret.Dealer = make(Hand, 0, 7)
 	var card deck.Card
-	var player, dealer Hand
 	for i := 0; i < 2; i++ {
-		for _, hand := range []*Hand{&player, &dealer} {
-			card, cards = draw(cards)
-			*hand = append(*hand, card)
-		}
+		card, ret.Deck = ret.Deck[0], ret.Deck[1:]
+		ret.Player = append(ret.Player, card)
+		card, ret.Deck = ret.Deck[0], ret.Deck[1:]
+		ret.Dealer = append(ret.Dealer, card)
 	}
+	ret.State = StatePlayerTurn
+	return ret
+}
+
+func main() {
+
+	var gs Gamestate
+	gs = Shuffle(gs)
+	gs = Deal(gs)
+
 	var input string
-	for input != "s" {
-		fmt.Println("Player:", player)
-		fmt.Println("Dealer:", dealer.DealerString())
+	for gs.State == StatePlayerTurn {
+		fmt.Println("Player:", gs.Player)
+		fmt.Println("Dealer:", gs.Dealer.DealerString())
 		fmt.Println("What will you do?(h)it or (s)tand")
 		fmt.Scanf("%s\n", &input)
 		switch input {
@@ -100,4 +125,37 @@ func main() {
 
 func draw(cards []deck.Card) (deck.Card, []deck.Card) {
 	return cards[0], cards[1:]
+}
+
+type Gamestate struct {
+	Deck   []deck.Card
+	State  State
+	Player Hand
+	Dealer Hand
+}
+
+func (gs *Gamestate) CurrentPlayer() *Hand {
+	switch gs.State {
+	case StatePlayerTurn:
+		return &gs.Player
+	case StateDealerTurn:
+		return &gs.Dealer
+	default:
+		panic("A valid Gamestate can not be found")
+	}
+}
+
+func clone(gs Gamestate) Gamestate {
+	ret := Gamestate{
+		Deck:   make([]deck.Card, len(gs.Deck)),
+		Turn:   gs.Turn,
+		Player: make(Hand, len(gs.Player)),
+		Dealer: make(Hand, len(gs.Dealer)),
+	}
+	//hard copy not mix values or change old game states (Inplace bei pandas)
+	copy(ret.Deck, gs.Deck)
+	copy(ret.Player, gs.Player)
+	copy(ret.Dealer, gs.Dealer)
+
+	return ret
 }
