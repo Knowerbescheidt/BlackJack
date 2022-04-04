@@ -59,6 +59,45 @@ func min(a, b int) int {
 	return b
 }
 
+func Stand(gs Gamestate) Gamestate {
+	ret := clone(gs)
+	ret.State++
+	return ret
+}
+
+func Hit(gs Gamestate) Gamestate {
+	ret := clone(gs)
+	hand := ret.CurrentPlayer()
+	var card deck.Card
+	card, ret.Deck = draw(ret.Deck)
+	*hand = append(*hand, card)
+	if hand.Score() > 21 {
+		return Stand(ret)
+	}
+	return ret
+}
+
+func EndHand(gs Gamestate) {
+	ret := clone(gs)
+	pScore, dScore := ret.Player.Score(), ret.Dealer.Score()
+	fmt.Println("********Final Score**********")
+	fmt.Println("Player hand: ", ret.Player, "\n Player Score:", pScore)
+	fmt.Println("Dealer hand: ", ret.Dealer, "\n Dealer Score:", dScore)
+	switch {
+	case pScore > 21:
+		fmt.Println("You busted, and loose, Looser")
+	case dScore > 21:
+		fmt.Println("Dealer busted, and loose, Looser")
+	case pScore > dScore:
+		fmt.Println("You win Congrats")
+	case dScore > pScore:
+		fmt.Println("You loose...Try Again!")
+	case dScore == pScore:
+		fmt.Println("Draw")
+	}
+	fmt.Println()
+}
+
 func Shuffle(gs Gamestate) Gamestate {
 	ret := clone(gs)
 	ret.Deck = deck.New(deck.Deck(3), deck.Shuffle)
@@ -94,33 +133,25 @@ func main() {
 		fmt.Scanf("%s\n", &input)
 		switch input {
 		case "h":
-			card, cards = draw(cards)
-			player = append(player, card)
+			gs = Hit(gs)
+		case "s":
+			gs = Stand(gs)
+		default:
+			fmt.Println("Invalid Option", input)
 		}
 
 	}
 
-	for dealer.Score() < 16 || (dealer.Score() == 17 && dealer.MinScore() != 17) {
-		card, cards = draw(cards)
-		dealer = append(dealer, card)
+	for gs.State == StateDealerTurn {
+		if gs.Dealer.Score() < 16 || (gs.Dealer.Score() == 17 && gs.Dealer.MinScore() != 17) {
+			gs = Hit(gs)
+		} else {
+			gs = Stand(gs)
+		}
 	}
 
-	pScore, dScore := player.Score(), dealer.Score()
-	fmt.Println("********Final Score**********")
-	fmt.Println("Player hand: ", player.String(), "\n Player Score:", pScore)
-	fmt.Println("Dealer hand: ", dealer.String(), "\n Dealer Score:", dScore)
-	switch {
-	case pScore > 21:
-		fmt.Println("You busted, and loose, Looser")
-	case dScore > 21:
-		fmt.Println("Dealer busted, and loose, Looser")
-	case pScore > dScore:
-		fmt.Println("You win Congrats")
-	case dScore > pScore:
-		fmt.Println("You loose...Try Again!")
-	case dScore == pScore:
-		fmt.Println("Draw")
-	}
+	EndHand(gs)
+
 }
 
 func draw(cards []deck.Card) (deck.Card, []deck.Card) {
@@ -148,7 +179,7 @@ func (gs *Gamestate) CurrentPlayer() *Hand {
 func clone(gs Gamestate) Gamestate {
 	ret := Gamestate{
 		Deck:   make([]deck.Card, len(gs.Deck)),
-		Turn:   gs.Turn,
+		State:  gs.State,
 		Player: make(Hand, len(gs.Player)),
 		Dealer: make(Hand, len(gs.Dealer)),
 	}
